@@ -31,7 +31,7 @@ class StudentLoadBalancer (object):
         if packet.type == packet.ARP_TYPE:
             if packet.payload.opcode == arp.REQUEST:
 
-                log.info("Request is received")
+                log.debug("Request is received")
                 # Receive request
                 # Remember protosrc = ip and hwsrc = mac
                 requested_MAC = 0
@@ -44,8 +44,8 @@ class StudentLoadBalancer (object):
 
                 # Client only
                 # Round-Robin Load Balancing
-                if str(packet.payload.protodst) == "10.0.0.10":
-                    log.info("Client is requesting for server at 10.0.0.10")
+                if packet.payload.protodst == IPAddr("10.0.0.10"):
+                    log.debug("Client is requesting for server at 10.0.0.10")
 
                     if server1_cnt == server2_cnt or server1_cnt == 0:
                         server1_cnt += 1
@@ -71,7 +71,7 @@ class StudentLoadBalancer (object):
 
                 # Server only
                 if packet.payload.protodst != IPAddr("10.0.0.10"):
-                    log.info("Server reply is made")
+                    log.debug("Server reply is made")
                     # Request is from server 1
                     if packet.payload.protosrc == IPAddr("10.0.0.5"):
                         requested_MAC = server1_clients.get(packet.payload.protodst)
@@ -86,7 +86,7 @@ class StudentLoadBalancer (object):
 
                 # Client only
                 if packet.payload.protodst == IPAddr("10.0.0.10"):
-                    log.info("Flow rules are beginning to be added.")
+                    log.debug("Flow rules are beginning to be added.")
                     # Send flow rules for server and client.
                     # client to server flow rule
                     fm = of.ofp_flow_mod()
@@ -118,12 +118,13 @@ class StudentLoadBalancer (object):
                 ether.src = requested_MAC
                 ether.payload = arp_reply
 
-                log.info("Connection to send the reply has been made")
+                log.debug("Connection to send the reply has been made")
 
                 # Set up and send message.
-                msg = of.ofp_packet_out(in_port = of.OFPP_NONE)
+                msg = of.ofp_packet_out(in_port = of.OFPP_IN_PORT)
                 msg.data = ether.pack()
-                msg.actions.append(of.ofp_action_output(port = event.port))
+                msg.in_port = event.port
+                #msg.actions.append(of.ofp_action_output(port = event.port))
                 event.connection.send(msg)
 
 

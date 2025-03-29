@@ -6,6 +6,8 @@
 from pox.core import core
 import pox
 
+log = core.getLogger()
+
 from pox.lib.packet.ethernet import ethernet
 from pox.lib.packet.arp import arp
 from pox.lib.addresses import IPAddr, EthAddr
@@ -27,6 +29,8 @@ class StudentLoadBalancer (object):
         packet = event.parsed
         if packet.type == packet.ARP_TYPE:
             if packet.payload.opcode == arp.REQUEST:
+
+                log.info("Request is received")
                 # Receive request
                 # Remember protosrc = ip and hwsrc = mac
                 requested_MAC = 0
@@ -40,6 +44,8 @@ class StudentLoadBalancer (object):
                 # Client only
                 # Round-Robin Load Balancing
                 if packet.payload.protodst == IPAddr("10.0.0.10"):
+                    log.info("Client is requesting for server at 10.0.0.10")
+
                     if server1_cnt == server2_cnt or server1_cnt == 0:
                         server1_cnt += 1
                         arp_reply.hwsrc = EthAddr("00:00:00:00:00:05")
@@ -78,6 +84,7 @@ class StudentLoadBalancer (object):
 
                 # Client only
                 if packet.payload.protodst == IPAddr("10.0.0.10"):
+                    log.info("Flow rules are beginning to be added.")
                     # Send flow rules for server and client.
                     # client to server flow rule
                     fm = of.ofp_flow_mod()
@@ -109,7 +116,9 @@ class StudentLoadBalancer (object):
                 ether.src = requested_MAC
                 ether.payload = arp_reply
 
-                # Set up message.
+                log.info("Connection to send the reply has been made")
+
+                # Set up and send message.
                 msg = of.ofp_packet_out(in_port = of.OFPP_NONE)
                 msg.data = ether.pack()
                 msg.actions.append(of.ofp_action_output(port = event.port))

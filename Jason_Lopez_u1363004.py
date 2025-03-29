@@ -20,6 +20,8 @@ import pox.openflow.libopenflow_01 as of
 class StudentLoadBalancer (object):
     # __init__: Initialization for the StudentLoadBalancer class. Sets up the event listener.
     def __init__ (self):
+        log.debug("Component is initialized")
+
         core.addListeners(self)
 
     # _handle_PacketIn: event handler that checks for when a ARP request is recieved. If the request is recieved, then
@@ -27,18 +29,21 @@ class StudentLoadBalancer (object):
     def _handle_PacketIn(self, event):
         global server2_cnt, server1_cnt
 
+        log.debug("handler is called.")
+
         packet = event.parsed
         if packet.type == packet.ARP_TYPE:
             if packet.payload.opcode == arp.REQUEST:
 
-                log.debug("Request is received")
+                log.debug("Request is received. Event port is %s", str(event.port))
                 # Receive request
                 # Remember protosrc = ip and hwsrc = mac
                 requested_MAC = 0
                 server_addr = 0
+                output_port = 0
 
                 arp_reply = arp()
-                arp_reply.hwdst = packet.src
+                arp_reply.hwdst = packet.payload.hwsrc
                 arp_reply.protodst = packet.payload.protosrc
                 arp_reply.opcode = arp.REPLY
 
@@ -54,9 +59,10 @@ class StudentLoadBalancer (object):
 
                         requested_MAC = EthAddr("00:00:00:00:00:05")
                         server_addr = IPAddr("10.0.0.5")
+                        output_port = 5
 
                         # Save the information of the client for server 1
-                        server1_clients.update({ packet.payload.protosrc : packet.src })
+                        server1_clients.update({ packet.payload.protosrc : packet.payload.hwsrc })
                     else:
                         server2_cnt += 1
                         arp_reply.hwsrc = EthAddr("00:00:00:00:00:06")
@@ -64,9 +70,10 @@ class StudentLoadBalancer (object):
 
                         requested_MAC = EthAddr("00:00:00:00:00:06")
                         server_addr = IPAddr("10.0.0.6")
+                        output_port = 6
 
                         # Save the information of the client for server 1
-                        server2_clients.update({ packet.payload.protosrc : packet.src })
+                        server2_clients.update({ packet.payload.protosrc : packet.payload.hwsrc })
 
 
                 # Server only
@@ -96,16 +103,18 @@ class StudentLoadBalancer (object):
 
                     fm.actions.append(pox.openflow.libopenflow_01.ofp_action_nw_addr.set_dst(server_addr))
                     fm.actions.append(pox.openflow.libopenflow_01.ofp_action_nw_addr.set_src(packet.payload.protosrc))
+                    fm.actions.append(of.ofp_action_output(port = output_port))
 
                     # server to client flow rule
                     sm = of.ofp_flow_mod()
-                    sm.match.in_port = event.port
+                    sm.match.in_port = output_port
                     sm.match.dl_type = 0x800
                     sm.match.nw_dst = packet.payload.protosrc
                     sm.match.nw_src = server_addr
 
                     sm.actions.append(pox.openflow.libopenflow_01.ofp_action_nw_addr.set_dst(packet.payload.protosrc))
                     sm.actions.append(pox.openflow.libopenflow_01.ofp_action_nw_addr.set_src(server_addr))
+                    fm.actions.append(of.ofp_action_output(port = event.port))
 
                     event.connection.send(fm)
                     event.connection.send(sm)
@@ -114,7 +123,7 @@ class StudentLoadBalancer (object):
                 # Set up packet.
                 ether = ethernet()
                 ether.type = ethernet.ARP_TYPE
-                ether.dst = packet.src
+                ether.dst = packet.payload.hwsrc
                 ether.src = requested_MAC
                 ether.payload = arp_reply
 

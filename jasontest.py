@@ -33,6 +33,9 @@ class StudentLoadBalancer (object):
         self._expire_timer = Timer(5, _handle_expiration, recurring=True)
 
         core.addListeners(self)
+        core.openflow.addListeners(self)
+        
+        core.addListeners("PacketIn", self._handle_PacketIn)
 
         log.debug("Listeners are added")
 

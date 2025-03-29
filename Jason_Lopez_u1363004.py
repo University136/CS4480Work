@@ -8,7 +8,7 @@ import pox
 
 log = core.getLogger()
 
-from pox.lib.packet.ethernet import ethernet
+from pox.lib.packet.ethernet import ethernet, ETHER_BROADCAST
 from pox.lib.packet.arp import arp
 from pox.lib.addresses import IPAddr, EthAddr
 
@@ -23,6 +23,8 @@ class StudentLoadBalancer (object):
         log.debug("Component is initialized")
 
         core.addListeners(self)
+
+        log.debug("Listeners are added")
 
     # _handle_PacketIn: event handler that checks for when a ARP request is recieved. If the request is recieved, then
     #                   the client is connected with one of the two servers depending on round-robin load balancing.
@@ -43,7 +45,7 @@ class StudentLoadBalancer (object):
                 output_port = 0
 
                 arp_reply = arp()
-                arp_reply.hwdst = packet.payload.hwsrc
+                arp_reply.hwdst = packet.payload.hwsrccd
                 arp_reply.protodst = packet.payload.protosrc
                 arp_reply.opcode = arp.REPLY
 
@@ -55,10 +57,10 @@ class StudentLoadBalancer (object):
                     if server1_cnt == server2_cnt or server1_cnt == 0:
                         server1_cnt += 1
                         arp_reply.hwsrc = EthAddr("00:00:00:00:00:05")
-                        arp_reply.protosrc = IPAddr("10.0.0.5")
+                        arp_reply.protosrc = IPAddr("10.0.0.05")
 
                         requested_MAC = EthAddr("00:00:00:00:00:05")
-                        server_addr = IPAddr("10.0.0.5")
+                        server_addr = IPAddr("10.0.0.05")
                         output_port = 5
 
                         # Save the information of the client for server 1
@@ -66,7 +68,7 @@ class StudentLoadBalancer (object):
                     else:
                         server2_cnt += 1
                         arp_reply.hwsrc = EthAddr("00:00:00:00:00:06")
-                        arp_reply.protosrc = IPAddr("10.0.0.6")
+                        arp_reply.protosrc = IPAddr("10.0.0.06")
 
                         requested_MAC = EthAddr("00:00:00:00:00:06")
                         server_addr = IPAddr("10.0.0.6")
@@ -130,21 +132,14 @@ class StudentLoadBalancer (object):
                 log.debug("Connection to send the reply has been made")
 
                 # Set up and send message.
-                msg = of.ofp_packet_out(in_port = of.OFPP_IN_PORT)
+                msg = of.ofp_packet_out(in_port = of.OFPP_FLOOD)
                 msg.data = ether.pack()
-                msg.in_port = event.port
+                #msg.in_port = event.port
                 #msg.actions.append(of.ofp_action_output(port = event.port))
                 event.connection.send(msg)
 
 
-        return
-
-# Hardcoded MAC address for the two servers
-server_one_MAC = "00:00:00:00:00:05"
-server_two_MAC = "00:00:00:00:00:06"
-
-server_one_IP = "10.0.0.5"
-server_two_IP = "10.0.0.6"
+        return None
 
 # The number of clients for each server for round-robin load bearing.
 server1_cnt = 0

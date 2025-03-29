@@ -40,7 +40,7 @@ class StudentLoadBalancer (object):
                 # Client only
                 # Round-Robin Load Balancing
                 if packet.payload.protodst == IPAddr("10.0.0.10"):
-                    if server1_cnt == server2_cnt and server1_cnt != 0:
+                    if server1_cnt == server2_cnt or server1_cnt == 0:
                         server1_cnt += 1
                         arp_reply.hwsrc = EthAddr("00:00:00:00:00:05")
                         arp_reply.protosrc = IPAddr("10.0.0.5")

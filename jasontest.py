@@ -12,7 +12,7 @@ from pox.lib.packet.ethernet import ethernet, ETHER_BROADCAST
 from pox.lib.packet.arp import arp
 from pox.lib.addresses import IPAddr, EthAddr
 from pox.lib.recoco import Timer
-from pox.lib.revent import *
+from pox.lib.revent import EventHalt, Event, EventMixin
 
 import pox.openflow.libopenflow_01 as of
 
@@ -25,7 +25,7 @@ def _handle_expiration():
 #Intercept clients seeking servers at "10.0.0.10"
 # StudentLoadBalancer: A class that intercepts ARP requests made to the server from the client for redirection
 #                      to one of the two available servers. The choice of servers is done in a round-robin fashion.
-class StudentLoadBalancer (object):
+class StudentLoadBalancer (EventMixin):
     # __init__: Initialization for the StudentLoadBalancer class. Sets up the event listener.
     def __init__ (self):
         log.debug("Component is initialized")
@@ -33,9 +33,6 @@ class StudentLoadBalancer (object):
         self._expire_timer = Timer(5, _handle_expiration, recurring=True)
 
         core.addListeners(self)
-        core.openflow.addListeners(self)
-        
-        core.addListeners("PacketIn", self._handle_PacketIn)
 
         log.debug("Listeners are added")
 
@@ -45,7 +42,6 @@ class StudentLoadBalancer (object):
         global server2_cnt, server1_cnt
 
         log.debug("handler is called.")
-
         packet = event.parsed
         if packet.type == packet.ARP_TYPE:
             if packet.payload.opcode == arp.REQUEST:
